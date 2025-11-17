@@ -1,0 +1,18 @@
+# Core JAX ecosystem with compatible versions
+jax>=0.4.35
+jaxlib>=0.4.35
+optax>=0.2.2
+flax>=0.8.5
+
+# Scientific computing
+numpy>=1.26.4
+scipy>=1.13.0
+matplotlib>=3.8.4
+
+# Jupyter environment
+ipykernel>=6.29.4
+ipython>=8.23.0
+matplotlib-inline>=0.1.7
+
+# Optional but recommended for the project
+jaxopt>=0.8.3
