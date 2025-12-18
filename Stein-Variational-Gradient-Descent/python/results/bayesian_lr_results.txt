@@ -1,0 +1,8 @@
+Bayesian Logistic Regression Results
+============================================================
+
+Method              Accuracy     Log-Likelihood    Particles
+------------------------------------------------------------
+SVGD                  0.7449            -0.5233          100
+SGD (MAP)             0.6628            -7.7391            1
+SGLD                  0.7561            -0.5657         2999
