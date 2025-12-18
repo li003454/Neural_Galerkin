@@ -6,7 +6,7 @@ from functools import partial
 
 # Import from our own modules
 from utils import compute_residual_for_sampling
-from physics import kdv_spatial_residual
+from physics import kdv_spatial_residual, ac_spatial_residual
 
 @jax.jit
 def svgd_kernel(z, h):

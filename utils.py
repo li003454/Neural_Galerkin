@@ -53,9 +53,18 @@ def assemble_F(model_apply_fn, params, spatial_residual_fn, particles, t):
     J = compute_jacobian_matrix(model_apply_fn, params, particles)
     num_particles = particles.shape[0]
 
-    # `spatial_residual_fn` expects (model_apply_fn, params, xs)
-    def single_residual_fn(p, x):
-        return spatial_residual_fn(model_apply_fn, p, x)
+    # `spatial_residual_fn` expects (model_apply_fn, params, xs) or (model_apply_fn, params, xs, t)
+    # Check if spatial_residual_fn needs time parameter by checking its signature
+    import inspect
+    sig = inspect.signature(spatial_residual_fn)
+    num_params = len(sig.parameters)
+    
+    if num_params == 4:  # AC equation: (model_apply_fn, params, xs, t)
+        def single_residual_fn(p, x):
+            return spatial_residual_fn(model_apply_fn, p, x, t)
+    else:  # KdV equation: (model_apply_fn, params, xs)
+        def single_residual_fn(p, x):
+            return spatial_residual_fn(model_apply_fn, p, x)
 
     f_vals = jax.vmap(single_residual_fn, in_axes=(None, 0))(params, particles.squeeze())
     f_vals = jnp.where(jnp.isnan(f_vals), 0.0, f_vals)
@@ -73,12 +82,25 @@ def compute_residual_for_sampling(model_apply_fn, params, spatial_residual_fn, t
     
     u_t = jnp.dot(J, theta_dot_flat)
     
-    def single_residual_fn(p, x):
-        result = spatial_residual_fn(model_apply_fn, p, x)
-        # Numerical stability
-        result = jnp.where(jnp.isnan(result), 0.0, result)
-        result = jnp.where(jnp.isinf(result), jnp.sign(result) * 1e6, result)
-        return result
+    # Check if spatial_residual_fn needs time parameter
+    import inspect
+    sig = inspect.signature(spatial_residual_fn)
+    num_params = len(sig.parameters)
+    
+    if num_params == 4:  # AC equation: (model_apply_fn, params, xs, t)
+        def single_residual_fn(p, x):
+            result = spatial_residual_fn(model_apply_fn, p, x, t)
+            # Numerical stability
+            result = jnp.where(jnp.isnan(result), 0.0, result)
+            result = jnp.where(jnp.isinf(result), jnp.sign(result) * 1e6, result)
+            return result
+    else:  # KdV equation: (model_apply_fn, params, xs)
+        def single_residual_fn(p, x):
+            result = spatial_residual_fn(model_apply_fn, p, x)
+            # Numerical stability
+            result = jnp.where(jnp.isnan(result), 0.0, result)
+            result = jnp.where(jnp.isinf(result), jnp.sign(result) * 1e6, result)
+            return result
 
     # Ensure particles is at least 1D for vmap
     particles_1d = jnp.atleast_1d(particles.squeeze())

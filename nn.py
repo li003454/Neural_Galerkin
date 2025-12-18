@@ -49,11 +49,57 @@ class ShallowNetKdV(nn.Module):
         output = jnp.squeeze(output, axis=-1)  # Remove the last dimension (features=1)
         return output
 
-# # --- Allen-Cahn (AC) Equation Network Architectures ---
-# # (我们暂时保留它们，以备将来扩展)
+# --- Allen-Cahn (AC) Equation Network Architectures ---
 
-# class PeriodicPhiAC(nn.Module):
-#     # ... (你的 PeriodicPhiAC 代码) ...
+class PeriodicPhiAC(nn.Module):
+    """Custom periodic feature layer for Allen-Cahn equation."""
+    m: int
+    L: float
+    param_init: Callable = nn.initializers.truncated_normal(stddev=1.0)
+    # param_init: Callable = nn.initializers.uniform()
+    # param_init: Callable = nn.initializers.constant(1)
 
-# class DeepNetAC(nn.Module):
-#     # ... (你的 DeepNetAC 代码) ...
+    @nn.compact
+    def __call__(self, x):
+        d = x.shape[-1]  # input dimension
+        
+        # w = self.param('kernel', self.param_init, (self.m, d)) # w.shape = (m, d)
+        # b = self.param('bias', self.param_init, (d, )) # b.shape = (d, )
+        a = self.param('a', self.param_init, (self.m, d))
+        b = self.param('b', self.param_init, (self.m, d))
+        c = self.param('c', self.param_init, (self.m, d))
+
+        def apply_phi(single_x):
+            # return w @ jnp.sin(2 * jnp.pi * (x - b) / self.L)
+            return jnp.sum(a * jnp.cos((2 * jnp.pi / self.L) * single_x + b) + c, axis=1)
+
+        # Apply phi to each input
+        phi = jax.vmap(apply_phi)(x)
+        return phi
+
+class DeepNetAC(nn.Module):
+    """Deep network model for Allen-Cahn equation."""
+    m: int
+    l: int
+    L: float
+
+    @nn.compact
+    def __call__(self, x):
+        # Ensure x has a batch dimension, even if it's 1
+        if x.ndim == 1:
+            x = x.reshape(-1, 1)
+        
+        layers = [PeriodicPhiAC(self.m, self.L), nn.activation.tanh]
+        
+        for _ in range(self.l - 1):
+            layers.append(nn.Dense(self.m))
+            layers.append(nn.activation.tanh)
+        
+        layers.append(nn.Dense(features=1, use_bias=False))
+        
+        net = nn.Sequential(layers)
+        
+        output = net(x)
+        # Ensure proper squeezing: if single input, return scalar; otherwise keep batch dim
+        output = jnp.squeeze(output, axis=-1)  # Remove the last dimension (features=1)
+        return output
